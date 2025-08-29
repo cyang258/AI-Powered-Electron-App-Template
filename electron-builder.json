@@ -1,0 +1,19 @@
+{
+    "appId": "com.chun-yang.prepare",
+    "files": ["dist-electron", "dist-react"],
+    "icon": "./desktopIcon.png",
+    "extraResources": ["dist-electron/preload.cjs", {
+        "from": "src/database/demo_table.db",
+        "to": "demo_table.db"
+    }],
+    "mac": {
+        "target": "dmg"
+    },
+    "linux": {
+        "target": "AppImage",
+        "category": "Utility"
+    },
+    "win": {
+        "target": ["portable", "msi"]
+    }
+}
