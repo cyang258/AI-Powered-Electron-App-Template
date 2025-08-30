@@ -4,7 +4,7 @@ import { dialog } from "electron";
 import type { IpcMainEvent } from "electron";
 import path from "path";
 import { promises as fs } from "fs";
-import { abort, run, chat, stop, serve } from "./service/ollama/ollama.js";
+import { abort, run, chat, stop, serve, generatePrompt } from "./service/ollama/ollama.js";
 
 // Optional: typing for worker messages
 interface WorkerMessage {
@@ -76,7 +76,7 @@ export async function sendCommand(event: IpcMainEvent, images: string[]) {
   const base64 = await convertImageToBase64(images[0]);
   if (base64) {
     try {
-      debugLog("Sending prompt to Ollama...");
+      debugLog("Sending image prompt to Ollama...");
       await chat(model, [base64], (json: any) => {
         event.reply("chat:reply", { success: true, content: json });
       });
@@ -85,6 +85,18 @@ export async function sendCommand(event: IpcMainEvent, images: string[]) {
       event.reply("chat:reply", { success: false, content: err.message });
     }
   }
+}
+
+export async function sendPrompt(event: IpcMainEvent, prompt: string) {
+    try {
+      debugLog("Sending prompt to Ollama...");
+      await generatePrompt(model, prompt, (json: any) => {
+        event.reply("prompt:reply", { success: true, content: json });
+      });
+    } catch (err: any) {
+      console.error(err);
+      event.reply("prompt:reply", { success: false, content: err.message });
+    }
 }
 
 export async function stopChat() {

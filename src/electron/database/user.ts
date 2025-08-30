@@ -1,9 +1,9 @@
-import db from './db.js';
+import { getDB } from './db.js';
 
-const readAllUser = () => {
+const getAllUser = () => {
     try {
         const query = `SELECT * FROM users`
-        const readQuery = db.prepare(query)
+        const readQuery = getDB().prepare(query)
         const rowList = readQuery.all()
         return rowList
     } catch (err) {
@@ -14,8 +14,9 @@ const readAllUser = () => {
 
 const insertUser = (name:string, email:string, age:Number) => {
     try {
+        const db = getDB();
         const insertQuery = db.prepare(
-            `INSERT INTO users (name, age, email) VALUES ('${name}' , ${age}, ${email})`
+            `INSERT INTO users (name, age, email) VALUES ('${name}' , ${age}, '${email}')`
         )
 
         const transaction = db.transaction(() => {
@@ -33,6 +34,6 @@ const insertUser = (name:string, email:string, age:Number) => {
 }
 
 export const UserDB = {
-    readAllUser,
+    getAllUser,
     insertUser,
 }

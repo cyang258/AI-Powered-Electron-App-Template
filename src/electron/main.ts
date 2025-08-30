@@ -15,6 +15,7 @@ import {
   getModel,
   setModel,
   sendCommand,
+  sendPrompt,
   stopChat,
   serveOllama,
   stopOllama,
@@ -22,6 +23,11 @@ import {
   runOllamaModel,
 } from "./ollamaApi.js";
 import { getPreloadPath } from "./pathResolver.js";
+import { initDB } from "./database/db.js";
+import { 
+  getAllUsers,
+  addUser  
+} from "./databaseApi.js";
 
 // const __filename = fileURLToPath(import.meta.url);
 // const __dirname = path.dirname(__filename);
@@ -68,7 +74,6 @@ const createWindow = (): void => {
   });
 
   if (isDev()) {
-    console.log("is dev");
     mainWindow.loadURL("http://localhost:5123");
   } else {
     mainWindow.loadFile(path.join(app.getAppPath(), "/dist-react/index.html"));
@@ -85,11 +90,17 @@ app.on("ready", () => {
   ipcMain.on("model:set", setModel);
   ipcMain.on("model:get", getModel);
   ipcMain.on("chat:send", sendCommand);
+  ipcMain.on("prompt:send", sendPrompt);
   ipcMain.on("chat:stop", stopChat);
   ipcMain.on("doc:load", loadDocument);
   ipcMain.on("ollama:serve", serveOllama);
   ipcMain.on("ollama:run", runOllamaModel);
   ipcMain.on("ollama:stop", stopOllama);
+  ipcMain.handle("user:getAll", async () => {
+    const { success, content } = await getAllUsers();
+    return content;
+  });
+  ipcMain.handle("user:add", async () => addUser);
 
   if (app.isPackaged) {
     // macOS: move to Applications folder if needed
@@ -130,7 +141,8 @@ app.on("ready", () => {
       );
     }
   }
-
+  const db =initDB();
+  console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXdatabase file location', db.name)
   createWindow();
 
   // Content Security Policy

@@ -35,12 +35,11 @@ const App = () => {
       }
       if (data.content.done) {
         // 4. Load the chat
-        // document.getElementById("initial-view").style.display = "none";
-        // chatView.style.display = "block";
         setIsLoading(false)
-        // setTimeout(() => {
-        //   window.API.ollama.sendCommand(['./public/default.jpg']);
-        // }, 500);
+        setTimeout(() => {
+          window.API.ollama.sendCommand(['./public/animal.jpg']);
+          window.API.ollama.sendPrompt('tell me a joke');
+        }, 500);
         return;
       }
       setMsg(data.content)

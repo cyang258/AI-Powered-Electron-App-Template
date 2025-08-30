@@ -2,10 +2,17 @@
     "appId": "com.chun-yang.prepare",
     "files": ["dist-electron", "dist-react"],
     "icon": "./desktopIcon.png",
-    "extraResources": ["dist-electron/preload.cjs", {
-        "from": "src/database/demo_table.db",
-        "to": "demo_table.db"
-    }],
+    "extraResources": [
+        "dist-electron/preload.cjs",
+        {
+            "from": "src/electron/service/ollama/runners/ollama.exe",
+            "to": "bin"
+        },
+        {
+            "from": "src/database/demo_table.db",
+            "to": "demo_table.db"
+        }
+    ],
     "mac": {
         "target": "dmg"
     },

@@ -1,5 +1,6 @@
+import { sendPrompt } from "./ollamaApi";
+
 const { contextBridge, ipcRenderer } = require("electron");
-// const USERDB = require('./database/user');
 
 // Expose the API to the renderer process
 contextBridge.exposeInMainWorld("API", {
@@ -7,6 +8,10 @@ contextBridge.exposeInMainWorld("API", {
     sendCommand: (text: string) => ipcRenderer.send("chat:send", text),
     onChatReply: (callback: (event: any, data: any) => void) => {
       ipcRenderer.on("chat:reply", (event: any, data: any) => callback(event, data));
+    },
+    sendPrompt: (text: string) => ipcRenderer.send("prompt:send", text),
+    onPromptReply: (callback: (event: any, data: any) => void) => {
+      ipcRenderer.on("prompt:reply", (event: any, data: any) => callback(event, data));
     },
     stopChat: () => ipcRenderer.send("chat:stop"),
     loadDocument: () => ipcRenderer.send("doc:load"),
@@ -27,13 +32,10 @@ contextBridge.exposeInMainWorld("API", {
     },
     setModel: (model: string) => ipcRenderer.send("model:set", model),
   },
-  // db: {
-  //   initDB: () => ipcRenderer.send("db:init"),
-  //   onDBInitiated: (callback: (event: any, data: any) => void) => {
-  //     ipcRenderer.on("db:init", (event: any, data: any) => callback(event, data));
-  //   },
-  //   // user: {
-  //   //   getAllUsers: () => ipcRenderer.send("allUser:get")
-  //   // }
-  // }
+  db: {
+    user: {
+      getAllUser: async () => ipcRenderer.invoke("user:getAll"),
+      addUser: async (name: string, email: string, age: number) => ipcRenderer.invoke("user:add", name, email, age),
+    }
+  }
 });
