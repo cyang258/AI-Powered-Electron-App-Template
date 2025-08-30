@@ -141,8 +141,8 @@ app.on("ready", () => {
       );
     }
   }
-  const db =initDB();
-  console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXdatabase file location', db.name)
+  // Init DB
+  initDB();
   createWindow();
 
   // Content Security Policy

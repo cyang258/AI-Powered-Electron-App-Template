@@ -20,11 +20,7 @@ const insertUser = (name:string, email:string, age:Number) => {
         )
 
         const transaction = db.transaction(() => {
-            const info = insertQuery.run()
-            console.log(
-                `Inserted ${info.changes} rows with last ID 
-                 ${info.lastInsertRowid} into person`
-            )
+            insertQuery.run()
         })
         transaction()
     } catch (err) {

@@ -167,7 +167,7 @@ async function convertImageToBase64(filePath: string): Promise<string | false> {
 }
 
 function processDocument(filePath: string, event: IpcMainEvent) {
-  const worker = new Worker(path.join(__dirname, "./src/service/worker.js"));
+  const worker = new Worker(path.join(__dirname, "./src/electron/service/worker.js"));
   worker.postMessage(filePath);
 
   worker.on("message", async (e: WorkerMessage) => {
