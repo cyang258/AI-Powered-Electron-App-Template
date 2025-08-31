@@ -31,20 +31,17 @@ function LandingPage({ isLoading, error, msg }: { isLoading: boolean; error: str
     window.API.db.user.getAllUser().then((data: User[]) => {
       setUsers(data);
     })
-    window.API.ollama.onChatReply((_, data) => {
+    window.API.ollama.onChatReply((_, data: {success: boolean; content: { done: boolean; response: string }}) => {
 	    // clear loading animation
 	    setImgReplyLoading(false)
-	
       if (!data.success) {
-        if (data.content !== "The operation was aborted.") {
-          // Don't display an error if the user stopped the request
-          setImgReply("Error: " + data.content);
-        }
+        // Don't display an error if the user stopped the request
+        setImgReply("Error: " + data.content);
         return;
       }
 	
-      if (data.content.message.content && data.content.message.content.length > 0) {
-        setImgReply((prev) => prev += data.content.message.content) 
+      if (!data.content.done && data.content.response !== '') {
+        setImgReply((prev) => prev += data.content.response) 
       }
 	
       if (data.content.done) {

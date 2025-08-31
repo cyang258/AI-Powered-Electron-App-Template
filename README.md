@@ -1,8 +1,9 @@
 # React + TypeScript + Vite + Electron + Ollama
 
 This repo aims to get started building a local and private AI-powered desktop app quickly. It runs an LLM as a standalone desktop app
-This template is for electron + react + TypeScript + Ollama + sqlite3 + Chakra UI right now, I will integrate with LangChain later on.
+This template is for electron + react + TypeScript + Ollama + sqlite3 + Chakra UI right now.
 
+The template integrated with LangChain
 <div align="center">
     <img src="./screenshots/UI.png" width="100%">
 </div>

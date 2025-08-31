@@ -90,7 +90,7 @@ export async function sendCommand(event: IpcMainEvent, images: string[]) {
 export async function sendPrompt(event: IpcMainEvent, prompt: string) {
     try {
       debugLog("Sending prompt to Ollama...");
-      await generatePrompt(model, prompt, (json: any) => {
+      await generatePrompt(model, prompt, (json: {response: string; done: boolean}) => {
         event.reply("prompt:reply", { success: true, content: json });
       });
     } catch (err: any) {

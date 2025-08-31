@@ -5,6 +5,10 @@ import { exec, ChildProcess } from "child_process";
 import { logInfo, logErr } from "../logger.js";
 import { isDev } from '../../util.js';
 import { app } from 'electron';
+import { ChatOllama, Ollama } from "@langchain/ollama";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 
 // Define serve types
 export const OllamaServeType = {
@@ -20,7 +24,6 @@ interface OllamaModule {
 
 interface OllamaInstance {
     pull(options: { model: string; stream: boolean }): AsyncIterable<any>;
-    generate(options: { model: string; prompt: string; system?: string; suffix?: string; stream?: boolean; format?: string }): Promise<any> | AsyncIterable<any>;
     chat(options: { model: string; messages?: any[]; stream?: boolean; format?: string }): Promise<any> | AsyncIterable<any>;
     abort(): void;
 }
@@ -31,6 +34,8 @@ type Message = {
     images?: string[];
     format?: string;
 };
+
+type ModelInstances = Ollama | ChatOllama
 
 const imgSystem: Message = {
     role: "system",
@@ -52,6 +57,7 @@ const promptSystem: string = 'You are a helpful AI assistant that good at tellin
 
 export class OllamaOrchestrator {
     private static instance: OllamaOrchestrator | null = null;
+    private static models: Map<string, ModelInstances> = new Map();
     private childProcess: ChildProcess | null = null;
     private messages: Message[] = [imgSystem];
     private host = "http://127.0.0.1:11434";
@@ -69,6 +75,27 @@ export class OllamaOrchestrator {
         return this.instance;
     }
 
+    private static getKey(model: string, chatMode: boolean): string {
+        return `${model}:${chatMode ? "chat" : "normal"}`;
+    }
+    static async getModelInstance(model: string, chatMode: boolean = false): Promise<ModelInstances> {
+        const key = this.getKey(model, chatMode);
+        let res;
+        if (!this.models.has(key)) {
+            res = chatMode
+                ? new ChatOllama({ model, temperature: 0 })
+                : new Ollama({ model, temperature: 0 });
+
+            this.models.set(key, res);
+            return res;
+        }
+        res = this.models.get(key);
+        if (!res) {
+            throw new Error(`Model ${model} is not loaded`);
+        }       
+        return res
+    }
+
     async serve(): Promise<OllamaServeType> {
         try {
             await this.ping();
@@ -83,7 +110,6 @@ export class OllamaOrchestrator {
         } catch (err) {
             logInfo(`Ollama is not installed on the system: ${err}`);
         }
-        logInfo("HereXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
         logInfo(process.platform)
         let exe = "";
         let appDataPath = "";
@@ -105,7 +131,6 @@ export class OllamaOrchestrator {
                 logErr(`unsupported platform: ${process.platform}`);
                 throw new Error(`Unsupported platform: ${process.platform}`);
         }
-        logInfo("-------------------------------------------------------")
         logInfo(app.getAppPath())
         const pathToBinary = isDev() ? path.join(app.getAppPath(), "src", "electron", "service", "ollama", "runners", exe) : path.join(__dirname, "runners", exe);
         logInfo("path to binary: " + pathToBinary)
@@ -192,57 +217,25 @@ export class OllamaOrchestrator {
         throw new Error("Max retries reached. Ollama server didn't respond.");
     }
 
-    async sendCommand(model: string, images: string[], fn: (part: any) => void) {
-
-        this.messages.push({
-            role: "user",
-            content: "What is in the picture",
-            images: images || [],
-            format: "json",
-        });
-
-        const assistant: Message = {
-            role: "assistant",
-            content: `
-                You are a vision assistant. Look at the photo and identify the main objects you see.
-
-                Instructions:
-                1. Always respond with a single JSON object.
-                2. The object must have exactly one key: "description".
-                3. Do NOT include the question, any extra text, or explanations.
-                4. Example of valid response:
-                {
-                    "description": "A Siamese cat sitting on a wooden table outdoors."
-                }`,
-        };
-
-        try {
-            const stream = await this.ollama.chat({ model, messages: this.messages, stream: true, format: "json" });
-            for await (const part of stream) {
-                assistant.content += part.message.content;
-                fn(part);
-            }
-        } catch (error: any) {
-            if (!(error instanceof Error && error.name === "AbortError")) throw error;
-        }
-
-        this.messages.push(assistant);
-    }
-
-    async sendPrompt(model: string, prompt: string, fn: (part: any) => void) {
-        try {
-            const stream = await this.ollama.generate({ model, prompt, system: promptSystem, stream: true, format: "json" });
-            for await (const part of stream) {
-                fn(part);
-            }
-        } catch (error: any) {
-            if (!(error instanceof Error && error.name === "AbortError")) throw error;
-        }
-    }
-
     abortRequest() {
         this.ollama.abort();
     }
+}
+
+function chatResponseHandler(fn: (data: { response: string; done: boolean }) => void) {
+  return new class extends BaseCallbackHandler {
+    name = "chatResponseHandler";
+
+    // Fired when a new token (piece of output) is streamed
+    async handleLLMNewToken(token: string) {
+      fn({ response: token, done: false });
+    }
+
+    // Fired when the model finishes streaming
+    async handleLLMEnd() {
+      fn({ response: "", done: true });
+    }
+  };
 }
 
 // Export wrapper functions
@@ -252,14 +245,60 @@ export async function run(model: string, fn: (loaded: any) => void) {
 }
 
 export async function chat(model: string, images: string[], fn: (part: any) => void) {
-    const ollama = await OllamaOrchestrator.getOllama();
-    return ollama.sendCommand(model, images, fn);
+    const systemMessage = new SystemMessage({
+        content: 'You are a vision assistant. Look at the photo and identify the main objects you see.'
+    })
+
+    const imagesContent = images.map((image) => {
+        return {
+            type: "image_url",
+            image_url: {
+                url: `data:image/png;base64,${image}`, // ✅ use image/png
+            },
+        }
+    })
+    const humanMessage = new HumanMessage({
+        content: [
+            {
+                type: "text",
+                text: "What does this image contain?",
+            },
+            ...imagesContent
+        ],
+    });
+
+    try {
+        const llm = await OllamaOrchestrator.getModelInstance(model, true);
+        const parser = new StringOutputParser();
+        const chain = llm.pipe(parser);
+        await chain.invoke([systemMessage, humanMessage], { callbacks: [chatResponseHandler(fn)] })
+    } catch (error: any) {
+        if (!(error instanceof Error && error.name === "AbortError")) throw error;
+    }
 }
 
 export async function generatePrompt(model: string, prompt: string, fn: (part: any) => void) {
-    const ollama = await OllamaOrchestrator.getOllama();
-    return ollama.sendPrompt(model, prompt, fn);
+    const llm = await OllamaOrchestrator.getModelInstance(model);
+    const parser = new StringOutputParser();
+    try {
+        const messages = [
+            new SystemMessage(promptSystem),
+            new HumanMessage(prompt)
+        ]
+        const chain = llm.pipe(parser);
+        await chain.invoke(messages, { callbacks: [chatResponseHandler(fn)] })
+
+        // Or you could normal stream
+        // const stream = await chain.stream(messages)
+        // for await (const chunk of stream) {
+        //     fn({ response: chunk, done: false });
+        // }
+        // fn({ response: "", done: true });
+    } catch (error: any) {
+        if (!(error instanceof Error && error.name === "AbortError")) throw error;
+    }
 }
+
 
 export async function abort() {
     const ollama = await OllamaOrchestrator.getOllama();
